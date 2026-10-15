@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lei Match</title>
+<style>
+:root{--fs:20px;--bg:#fffaf0;--ink:#1d2a2a;--accent:#0b5d55;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Verdana,Arial,sans-serif;font-size:var(--fs);line-height:1.5}
+main{max-width:640px;margin:0 auto;padding:12px 16px 40px}
+h1{font-size:calc(var(--fs)*1.6);margin:8px 0;color:var(--accent);text-align:center}
+button{font-family:inherit;font-size:var(--fs);min-height:56px;min-width:56px;padding:8px 18px;border-radius:12px;border:3px solid var(--accent);background:#fff;color:var(--accent);font-weight:bold;cursor:pointer}
+button.primary{background:var(--accent);color:#fff}
+.row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:12px 0}
+#lei{display:flex;flex-wrap:wrap;justify-content:center;gap:2px;min-height:64px;border:3px dashed #8a6d3b;border-radius:40px;padding:8px;background:#fff}
+#lei svg{width:44px;height:44px}
+.slot{width:44px;height:44px;border-radius:50%;border:2px dotted #b9a27a}
+#board{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+.tile{aspect-ratio:1/1.15;min-height:72px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px;border:3px solid #6b5b3e;border-radius:14px;background:#fff;color:var(--ink);font-weight:normal}
+.tile svg{width:85%;height:auto}
+.tile span{font-size:max(14px,calc(var(--fs)*0.7));line-height:1.1}
+.tile.sel{border-color:#c2185b;background:#fde7ef;outline:4px solid #c2185b}
+.tile.hint{outline:5px dashed #0b5d55}
+.tile.gone{visibility:hidden}
+.card{background:#fff;border:3px solid var(--accent);border-radius:16px;padding:16px;margin:12px 0}
+.fact b{font-size:max(30px,calc(var(--fs)*1.5));display:block}
+.big{font-size:max(30px,calc(var(--fs)*1.5))}
+.hidden{display:none!important}
+#share{font-size:30px;white-space:pre-wrap;text-align:center}
+label{display:block}
+input[type=range]{width:100%;height:48px}
+.stat{text-align:center}
+</style></head><body><main>
+<h1>🌺 Lei Match</h1>
+<section id="start">
+ <p class="stat">Match two of the same flower to string them on your lei. Fill the lei to finish. No timer, no rush.</p>
+ <p class="stat big">🔥 Streak: <b id="streak">0</b></p>
+ <div class="row"><button class="primary big" id="bDaily">Today's Lei</button><button class="big" id="bPractice">Practice</button></div>
+ <div class="row"><button id="bHow">How to play</button></div>
+ <div class="card"><label for="size">Text size: <span id="sizeVal"></span></label><input id="size" type="range" min="18" max="30" step="1"></div>
+</section>
+<section id="game" class="hidden">
+ <p class="stat" id="mode"></p>
+ <div id="lei" aria-label="Your lei"></div>
+ <div id="fact" class="card fact" aria-live="polite">Tap a flower, then tap its match.</div>
+ <div id="board"></div>
+ <div class="row"><button id="bHint">💡 Hint</button><button id="bShuffle">🔀 Shuffle</button><button id="bHome">🏠 Home</button></div>
+</section>
+<section id="win" class="hidden">
+ <p class="stat big">Your lei is complete! 🌸</p>
+ <div id="winLei" class="row"></div>
+ <p class="stat" id="winStreak"></p>
+ <div class="card"><div id="share"></div></div>
+ <div class="row"><button class="primary" id="bCopy">📋 Copy result</button><button id="bAgain">Play practice</button><button id="bHome2">🏠 Home</button></div>
+ <p class="stat" id="copied" aria-live="polite"></p>
+</section>
+<section id="tut" class="hidden card">
+ <p class="big" style="margin:0">Aloha! 🌺</p>
+ <p>1. Tap any flower tile.</p><p>2. Tap another tile with the <b>same flower</b>.</p>
+ <p>3. The pair is strung onto your lei, and you'll learn about the flower.</p>
+ <p>Stuck? Tap <b>Hint</b> or <b>Shuffle</b>. There's no timer and you can't lose. A new Lei of the Day comes every day.</p>
+ <div class="row"><button class="primary" id="bTut">Let's begin</button></div>
+</section>
+</main>
+<script>
+const P=(c,cn)=>[0,72,144,216,288].map(a=>`<ellipse cx="50" cy="28" rx="15" ry="24" fill="${c}" stroke="#333" stroke-width="1.5" transform="rotate(${a} 50 50)"/>`).join('')+`<circle cx="50" cy="50" r="9" fill="${cn}"/>`;
+const F=[
+{id:'plumeria',h:'Melia',e:'Plumeria',m:'Sweet and common in leis; a symbol of welcome.',em:'🤍',svg:P('#fffbe6','#f5c400')},
+{id:'hibiscus',h:'Aloalo',e:'Hibiscus',m:'The yellow maʻo hau hele is Hawaiʻi\'s state flower.',em:'🌺',svg:P('#e53935','#ffeb3b')+'<line x1="50" y1="50" x2="64" y2="20" stroke="#ffeb3b" stroke-width="4"/>'},
+{id:'pikake',h:'Pīkake',e:'Arabian jasmine',m:'Named for peacocks by Princess Kaʻiulani, who loved both.',em:'⚪',svg:[0,60,120,180,240,300].map(a=>`<circle cx="50" cy="30" r="13" fill="#fff" stroke="#555" stroke-width="2" transform="rotate(${a} 50 50)"/>`).join('')+'<circle cx="50" cy="50" r="10" fill="#e8e8d0"/>'},
+{id:'maile',h:'Maile',e:'Maile vine',m:'A fragrant leaf lei for honor, given at weddings and graduations.',em:'🌿',svg:'<path d="M50 5 V95" stroke="#2e5d1f" stroke-width="4"/>'+[15,35,55,75].map(y=>`<ellipse cx="35" cy="${y}" rx="15" ry="7" fill="#3f8f2a" transform="rotate(-30 35 ${y})"/><ellipse cx="65" cy="${y+8}" rx="15" ry="7" fill="#3f8f2a" transform="rotate(30 65 ${y+8})"/>`).join('')},
+{id:'ilima',h:'ʻIlima',e:'ʻIlima',m:'Official flower of Oʻahu; a lei takes hundreds of blossoms.',em:'🟠',svg:P('#ff9800','#bf360c')},
+{id:'orchid',h:'ʻOkika',e:'Orchid',m:'Long-lasting purple blooms seen in many airport leis.',em:'💜',svg:'<ellipse cx="30" cy="40" rx="22" ry="14" fill="#8e24aa" stroke="#333"/><ellipse cx="70" cy="40" rx="22" ry="14" fill="#8e24aa" stroke="#333"/><ellipse cx="50" cy="22" rx="10" ry="20" fill="#ab47bc" stroke="#333"/><path d="M35 55 Q50 95 65 55 Z" fill="#4a148c" stroke="#333"/><circle cx="50" cy="50" r="6" fill="#fff59d"/>'},
+{id:'kenikeni',h:'Pua kenikeni',e:'Ten-cent flower',m:'Once sold for ten cents; turns from cream to orange.',em:'🌼',svg:P('#ffe0a3','#e65100')+'<circle cx="50" cy="50" r="4" fill="#fff"/>'},
+{id:'tuberose',h:'Kupaloke',e:'Tuberose',m:'Very fragrant white buds, often paired with other flowers.',em:'🌷',svg:'<path d="M50 95 V30" stroke="#2e7d32" stroke-width="4"/>'+[20,40,60].map(y=>`<ellipse cx="38" cy="${y}" rx="10" ry="14" fill="#fafafa" stroke="#555" stroke-width="2"/><ellipse cx="62" cy="${y+8}" rx="10" ry="14" fill="#fafafa" stroke="#555" stroke-width="2"/>`).join('')},
+];
+const svg=f=>`<svg viewBox="0 0 100 100" aria-hidden="true">${f.svg}</svg>`;
+const $=id=>document.getElementById(id), LS=localStorage, PAIRS=12;
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+function rng(seed){let h=1779033703^seed.length;for(const c of seed){h=Math.imul(h^c.charCodeAt(0),3432918353);h=h<<13|h>>>19}return()=>{h=Math.imul(h^h>>>16,2246822507);h=Math.imul(h^h>>>13,3266489909);return((h^=h>>>16)>>>0)/4294967296}}
+function shuffle(a,r){for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+let S={};
+function setSize(v){document.documentElement.style.setProperty('--fs',v+'px');$('sizeVal').textContent=v+'px';$('size').value=v;LS.setItem('lm_size',v)}
+function show(id){['start','game','win','tut'].forEach(s=>$(s).classList.toggle('hidden',s!==id))}
+function streak(){const s=JSON.parse(LS.getItem('lm_streak')||'{"n":0,"last":""}');const y=new Date();y.setDate(y.getDate()-1);const ys=y.getFullYear()+'-'+String(y.getMonth()+1).padStart(2,'0')+'-'+String(y.getDate()).padStart(2,'0');if(s.last!==today()&&s.last!==ys)s.n=0;return s}
+function home(){$('streak').textContent=streak().n;show('start')}
+function start(daily){
+ const r=rng(daily?'lei-'+today():String(Math.random()));
+ const kinds=[];for(let i=0;i<PAIRS;i++)kinds.push(F[i%F.length]);shuffle(kinds,r);
+ S={daily,r,tiles:shuffle(kinds.flatMap(k=>[k,k]).map((f,i)=>({f,i,gone:false})),r),sel:null,strung:[],hints:0,shuffles:0,order:kinds.map(k=>k.id)};
+ $('mode').textContent=daily?'Lei of the Day · '+today():'Practice lei';
+ $('fact').textContent='Tap a flower, then tap its match.';render();show('game');
+}
+function render(){
+ $('lei').innerHTML=S.strung.map(svg).join('')+'<span class="slot"></span>'.repeat(PAIRS-S.strung.length);
+ $('board').innerHTML='';S.tiles.forEach((t,k)=>{const b=document.createElement('button');b.className='tile'+(t.gone?' gone':'')+(S.sel===k?' sel':'');b.innerHTML=svg(t.f)+``;b.setAttribute('aria-label',t.f.h+', '+t.f.e);b.dataset.k=k;b.dataset.f=t.f.id;b.onclick=()=>tap(k);$('board').appendChild(b)});
+}
+function tap(k){const t=S.tiles[k];if(t.gone)return;
+ if(S.sel===null||S.sel===k){S.sel=S.sel===k?null:k;render();return}
+ const o=S.tiles[S.sel];
+ if(o.f.id===t.f.id){t.gone=o.gone=true;S.sel=null;S.strung.push(t.f);
+  $('fact').innerHTML=`<b>${t.f.h}</b>${t.f.e} — ${t.f.m}`;render();
+  if(S.strung.length===PAIRS)setTimeout(win,900);
+ }else{S.sel=k;$('fact').textContent='Not quite — those are different flowers. Try again!';render()}
+}
+function hint(){const live=S.tiles.map((t,k)=>[t,k]).filter(([t])=>!t.gone);const [a]=live[0];const b=live.find(([t],i)=>i>0&&t.f.id===a.f.id);S.hints++;render();[live[0][1],b[1]].forEach(k=>$('board').children[k].classList.add('hint'));$('fact').textContent='💡 These two match.'}
+function reshuffle(){const live=S.tiles.filter(t=>!t.gone);const pos=S.tiles.map((t,k)=>t.gone?null:k).filter(k=>k!==null);shuffle(live,Math.random);pos.forEach((p,i)=>S.tiles[p]=live[i]);S.sel=null;S.shuffles++;render()}
+function win(){
+ let line='';
+ if(S.daily){const s=streak();if(s.last!==today()){s.n++;s.last=today();LS.setItem('lm_streak',JSON.stringify(s))}
+  $('winStreak').textContent='🔥 Streak: '+s.n+' day'+(s.n===1?'':'s');
+  const em=S.strung.map(f=>f.em);line=`Lei Match ${today()} 🌺\n${em.slice(0,6).join('')}\n${em.slice(6).join('')}\n💡${S.hints} 🔀${S.shuffles} 🔥${s.n}`;
+ }else{$('winStreak').textContent='Practice complete — nicely done!';line=''}
+ $('share').textContent=line;$('share').parentElement.classList.toggle('hidden',!S.daily);$('bCopy').classList.toggle('hidden',!S.daily);
+ $('winLei').innerHTML=S.strung.map(f=>svg(f).replace('<svg','<svg width="44" height="44"')).join('');$('copied').textContent='';show('win')}
+async function copy(){const t=$('share').textContent;try{await navigator.clipboard.writeText(t)}catch(e){const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy')}catch(_){}a.remove()}$('copied').textContent='Copied! Paste it in a text or post.'}
+$('size').oninput=e=>setSize(e.target.value);setSize(LS.getItem('lm_size')||20);
+$('bDaily').onclick=()=>start(true);$('bPractice').onclick=$('bAgain').onclick=()=>start(false);
+$('bHint').onclick=hint;$('bShuffle').onclick=reshuffle;$('bHome').onclick=$('bHome2').onclick=home;$('bCopy').onclick=copy;
+$('bHow').onclick=()=>show('tut');$('bTut').onclick=()=>{LS.setItem('lm_tut','1');home()};
+home();if(!LS.getItem('lm_tut'))show('tut');
+</script></body></html>
